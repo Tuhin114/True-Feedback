@@ -46,3 +46,54 @@ const UserModel =
 ### Summary
 
 The purpose of this line is to either reuse the existing `User` model (if it has already been defined) or create a new one using the provided schema. This prevents errors from model redefinition, especially when the code is run multiple times, while ensuring strong TypeScript type checking.
+
+## Schemas
+
+-`npm i zod`
+
+In this code, you're using the `zod` library to create validation schemas for user input. Here’s a detailed explanation:
+
+### Zod Overview
+
+Zod is a TypeScript-first schema validation library that helps in validating and parsing data. It ensures that the data conforms to the desired structure and type, offering type-safe validation.
+
+### `usernameValidation` Schema
+
+This block defines the validation rules for a username:
+
+```typescript
+export const usernameValidation = z
+  .string() // The value must be a string.
+  .min(2, "Username must be at least 2 characters") // Minimum of 2 characters.
+  .max(20, "Username must not be more than 20 characters") // Maximum of 20 characters (there's a typo in the original code with max(2)).
+  .regex(/^[a-zA-Z0-9_]+$/, "Username must not contain special characters"); // Ensures the username contains only alphanumeric characters and underscores.
+```
+
+- **`.string()`**: Specifies that the value should be a string.
+- **`.min(2)`**: Ensures that the username has at least 2 characters. The second argument provides a custom error message if the condition fails.
+- **`.max(20)`**: Limits the username to a maximum of 20 characters.
+- **`.regex()`**: Ensures the username only contains letters (both uppercase and lowercase), numbers, or underscores. It disallows special characters like `!`, `@`, etc.
+
+### `signUpSchema`
+
+This defines the validation rules for the entire sign-up form, which includes the username, email, and password fields:
+
+```typescript
+export const signUpSchema = z.object({
+  username: usernameValidation, // Uses the predefined username validation.
+  
+  email: z.string().email({ message: "Invalid email address" }), // Ensures a valid email format.
+  
+  password: z
+    .string()
+    .min(6, { message: "Password must be at least 6 characters" }), // Ensures the password is a string and is at least 6 characters long.
+});
+```
+
+- **`z.object({ ... })`**: Creates an object schema to validate multiple fields at once.
+- **`email: z.string().email()`**: Validates that the email field is a string and conforms to a valid email format.
+- **`password: z.string().min(6)`**: Ensures the password is a string with a minimum length of 6 characters.
+
+### Summary2
+
+This schema helps validate user input for the signup form by enforcing rules on the username, email, and password fields. It ensures that usernames follow specific character requirements, emails are valid, and passwords are sufficiently secure with a minimum length.
