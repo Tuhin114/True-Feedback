@@ -180,3 +180,188 @@ This function handles sending a verification email using the `resend` service an
 This function sends a verification email using the `resend` email service and a React-based email template. It accepts `email`, `username`, and `verifyCode` as parameters, attempts to send the email, and returns a success or error response depending on the outcome. This structure ensures that the email content is both dynamic and reusable, with clear error handling.
 
 This `VerificationEmail` component uses `@react-email/components` to structure an HTML email. It personalizes the email by receiving `username` and `otp` as props and generates the content dynamically. The email uses `<Html>`, `<Head>`, and `<Font>` to set metadata and font styling, with a fallback font for compatibility. The body includes a greeting with the `username`, a verification message, and the `otp`. There's also a commented-out `<Button>` that could link to a verification URL, though it's not currently active. This template ensures cross-client compatibility while offering a clean, responsive design for verification emails.
+
+## Sign-up Functionality
+
+-`npm i bcrypt.js`
+
+### User Registration API Handler
+
+This function handles user registration, ensuring that the user provides a unique `username` and `email`, secures the password, and sends a verification email to the user.
+
+#### 1. **Database Connection**
+
+- Before processing the request, the function ensures that a connection to the MongoDB database is established using `dbConnect()`. This is essential for performing any operations on the `UserModel`.
+
+   ```typescript
+   await dbConnect();
+   ```
+
+#### 2. **Request Parsing**
+
+- The `POST` function expects a `username`, `email`, and `password` in the request body. It parses the incoming request as JSON:
+
+   ```typescript
+   const { username, email, password } = await request.json();
+   ```
+
+#### 3. **Username Validation**
+
+- The function checks if a verified user with the same `username` already exists in the database:
+
+   ```typescript
+   const existingVerifiedUserByUsername = await UserModel.findOne({
+     username,
+     isVerified: true,
+   });
+
+   if (existingVerifiedUserByUsername) {
+     return Response.json(
+       {
+         success: false,
+         message: 'Username is already taken',
+       },
+       { status: 400 }
+     );
+   }
+   ```
+
+- If such a user exists, it responds with a `400` status and an error message indicating that the username is already taken.
+
+#### 4. **Email Validation**
+
+- The function checks if the `email` is already associated with a user in the system:
+
+   ```typescript
+   const existingUserByEmail = await UserModel.findOne({ email });
+   ```
+
+- **If the email is verified**:
+  - If the user is already verified, the function returns a `400` status with a message stating that the email is already registered.
+
+     ```typescript
+     if (existingUserByEmail.isVerified) {
+       return Response.json(
+         {
+           success: false,
+           message: 'User already exists with this email',
+         },
+         { status: 400 }
+       );
+     }
+     ```
+
+- **If the email is not verified**:
+  - If the email exists but is unverified, the password is updated by hashing the new password, and the `verifyCode` is regenerated.
+  - The `verifyCodeExpiry` is updated to an hour from the current time.
+
+     ```typescript
+     const hashedPassword = await bcrypt.hash(password, 10);
+     existingUserByEmail.password = hashedPassword;
+     existingUserByEmail.verifyCode = verifyCode;
+     existingUserByEmail.verifyCodeExpiry = new Date(Date.now() + 3600000);
+     await existingUserByEmail.save();
+     ```
+
+#### 5. **New User Registration**
+
+- If the email is not found in the database, a new user is created with the provided details:
+
+- **Password Hashing**:
+  - The password is hashed securely using `bcrypt` to ensure it is not stored in plain text.
+
+     ```typescript
+     const hashedPassword = await bcrypt.hash(password, 10);
+     ```
+
+- **Verification Code Generation**:
+  - A 6-digit `verifyCode` is generated, valid for 1 hour (`verifyCodeExpiry`).
+
+     ```typescript
+     let verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+     ```
+
+- **Creating a New User**:
+  - A new user is created with properties like `username`, `email`, `password`, `verifyCode`, and `isVerified: false`. The default value for `isVerified` is `false` because the user has yet to verify their account.
+  - The `messages` array is initialized as empty, and `isAcceptingMessages` is set to `true`.
+
+     ```typescript
+     const newUser = new UserModel({
+       username,
+       email,
+       password: hashedPassword,
+       verifyCode,
+       verifyCodeExpiry: expiryDate,
+       isVerified: false,
+       isAcceptingMessages: true,
+       messages: [],
+     });
+
+     await newUser.save();
+     ```
+
+#### 6. **Sending Verification Email**
+
+- After successfully creating or updating the user, the function sends a verification email containing the OTP using the `sendVerificationEmail()` helper:
+
+   ```typescript
+   const emailResponse = await sendVerificationEmail(
+     email,
+     username,
+     verifyCode
+   );
+   ```
+
+- If the email fails to send, the function responds with a `500` status and an appropriate error message:
+
+   ```typescript
+   if (!emailResponse.success) {
+     return Response.json(
+       {
+         success: false,
+         message: emailResponse.message,
+       },
+       { status: 500 }
+     );
+   }
+   ```
+
+#### 7. **Success Response**
+
+- If everything succeeds (user creation, password update, and email sending), the function responds with a success message and a `201` status, prompting the user to verify their account.
+
+   ```typescript
+   return Response.json(
+     {
+       success: true,
+       message: 'User registered successfully. Please verify your account.',
+     },
+     { status: 201 }
+   );
+   ```
+
+#### 8. **Error Handling**
+
+- If any error occurs during the registration process, it is caught and logged. The function then responds with a `500` status and a generic error message:
+
+   ```typescript
+   catch (error) {
+     console.error('Error registering user:', error);
+     return Response.json(
+       {
+         success: false,
+         message: 'Error registering user',
+       },
+       { status: 500 }
+     );
+   }
+   ```
+
+### Key Features
+
+- **Unique Validation**: Ensures both `username` and `email` are unique and appropriately validated.
+- **Password Security**: Uses `bcrypt` for secure password hashing.
+- **Email Verification**: Sends a 6-digit OTP to the user's email for account verification.
+- **Error Handling**: Catches and logs errors during registration, ensuring that the system remains stable.
+
+This organized flow ensures that the registration process is robust, secure, and user-friendly.
