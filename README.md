@@ -365,3 +365,360 @@ This function handles user registration, ensuring that the user provides a uniqu
 - **Error Handling**: Catches and logs errors during registration, ensuring that the system remains stable.
 
 This organized flow ensures that the registration process is robust, secure, and user-friendly.
+
+## SignIn via NextAuth.js
+
+-`npm install next-auth`
+
+### Detailed Explanation of NextAuth Configuration with Credentials Provider
+
+This configuration is for setting up **NextAuth** in a Next.js application, using **credentials-based authentication** (email/username and password) with MongoDB as the database for managing users. The implementation focuses on secure user login, user verification, and session management using JSON Web Tokens (JWT).
+
+---
+
+### 1. **Providers: CredentialsProvider**
+
+The **`CredentialsProvider`** is one of the built-in NextAuth providers that enables authentication using a user's credentials (email/username and password). This provider is customizable and allows you to define how the login process should work.
+
+#### **Structure:**
+
+```typescript
+providers: [
+  CredentialsProvider({
+    id: 'credentials',
+    name: 'Credentials',
+    credentials: {
+      email: { label: 'Email', type: 'text' },
+      password: { label: 'Password', type: 'password' },
+    },
+    async authorize(credentials: any): Promise<any> {
+      await dbConnect();
+      ...
+    },
+  }),
+],
+```
+
+- **`id`**: A unique identifier for the provider. Here, it's set as `'credentials'`.
+- **`name`**: The display name of the provider, which will be shown on the sign-in page.
+- **`credentials`**: This object defines the fields needed for authentication. In this case, we require `email` (or username) and `password`.
+
+---
+
+### 2. **Authorize Function**
+
+The `authorize` function handles the core authentication logic. It performs the following tasks:
+
+#### **Database Connection:**
+
+```typescript
+await dbConnect();
+```
+
+- **`dbConnect()`**: Establishes a connection to the MongoDB database using Mongoose. This ensures that the database is available for querying user data.
+
+#### **User Lookup:**
+
+```typescript
+const user = await UserModel.findOne({
+  $or: [
+    { email: credentials.identifier },
+    { username: credentials.identifier },
+  ],
+});
+```
+
+- **`credentials.identifier`**: The user can input either an email or a username to log in. The query checks for a user document where the email or username matches the provided identifier.
+- **`$or`**: This MongoDB operator allows us to query for documents that match either of the specified conditions (email or username).
+
+#### **Error Handling for Missing Users:**
+
+```typescript
+if (!user) {
+  throw new Error('No user found with this email');
+}
+```
+
+- If no user is found in the database, an error is thrown. This message is used to notify the user that the account does not exist.
+
+#### **Verification Status Check:**
+
+```typescript
+if (!user.isVerified) {
+  throw new Error('Please verify your account before logging in');
+}
+```
+
+- If the user exists but has not yet verified their account (i.e., `isVerified` is `false`), the function throws an error, prompting the user to verify their account first.
+
+#### **Password Validation:**
+
+```typescript
+const isPasswordCorrect = await bcrypt.compare(
+  credentials.password,
+  user.password
+);
+if (isPasswordCorrect) {
+  return user;
+} else {
+  throw new Error('Incorrect password');
+}
+```
+
+- The provided password is compared to the hashed password stored in the database using **`bcrypt.compare()`**.
+- If the passwords match, the user object is returned to complete the login process.
+- If the password is incorrect, an error is thrown.
+
+#### **Error Handling:**
+
+```typescript
+catch (err: any) {
+  throw new Error(err);
+}
+```
+
+- If any other errors occur during the authorization process (e.g., database issues), the error is caught and thrown.
+
+---
+
+### 3. **JWT Callbacks**
+
+NextAuth uses JWT tokens to manage user sessions. The **callbacks** object allows us to modify the behavior of token generation and session management.
+
+#### **JWT Callback:**
+
+```typescript
+async jwt({ token, user }) {
+  if (user) {
+    token._id = user._id?.toString();
+    token.isVerified = user.isVerified;
+    token.isAcceptingMessages = user.isAcceptingMessages;
+    token.username = user.username;
+  }
+  return token;
+}
+```
+
+- **Purpose**: This callback is triggered when a JWT is being created or updated.
+- **Storing User Information**: If the `user` object is available (which happens after successful login), additional user details such as `_id`, `isVerified`, `isAcceptingMessages`, and `username` are added to the token.
+- **Token Conversion**: The MongoDB `ObjectId` is converted to a string (`user._id?.toString()`), since tokens only handle string data.
+
+#### **Session Callback:**
+
+```typescript
+async session({ session, token }) {
+  if (token) {
+    session.user._id = token._id;
+    session.user.isVerified = token.isVerified;
+    session.user.isAcceptingMessages = token.isAcceptingMessages;
+    session.user.username = token.username;
+  }
+  return session;
+}
+```
+
+- **Purpose**: This callback is invoked when the session object is created. The session object is sent to the frontend and contains user-specific information.
+- **Storing Token Data in Session**: The JWT token data is transferred to the session object. This makes fields like `_id`, `isVerified`, and `username` available in the frontend session, allowing client-side apps to easily access these details.
+
+---
+
+### 4. **Session Strategy**
+
+```typescript
+session: {
+  strategy: 'jwt',
+},
+```
+
+- **Strategy**: The session strategy is set to `'jwt'`, meaning that the session is entirely token-based. This avoids the need for server-side session storage, as everything is handled client-side using JWT tokens.
+
+---
+
+### 5. **Secret and Pages**
+
+#### **Secret:**
+
+```typescript
+secret: process.env.NEXTAUTH_SECRET,
+```
+
+- **Purpose**: The secret is used to sign the JWT tokens. It is stored in the environment variable **`NEXTAUTH_SECRET`** and should be a strong, secure string to ensure token integrity.
+
+#### **Custom Pages:**
+
+```typescript
+pages: {
+  signIn: '/sign-in',
+},
+```
+
+- **Custom Sign-in Page**: This specifies the route for a custom sign-in page (`/sign-in`). If a user is unauthenticated and tries to access a protected route, they will be redirected to this page.
+
+---
+
+### Summary of Key Features
+
+- **Credentials-Based Authentication**: Users can log in with their email or username and password.
+- **User Verification**: Only verified users can log in. Unverified users are prompted to verify their account first.
+- **Password Security**: Passwords are securely hashed with **bcrypt** and validated during login.
+- **JWT-Based Session Management**: Sessions are lightweight and secure, using JSON Web Tokens (JWT). This strategy eliminates the need for server-side session storage.
+- **Custom Sign-in Page**: You can define a custom page for user login, allowing for better user experience and branding.
+
+This setup provides a secure, scalable, and flexible authentication solution using **NextAuth** and **MongoDB** in a Next.js application.
+
+This code extends the type definitions of `next-auth` for both the **Session** and **JWT** interfaces. Here's a detailed breakdown:
+
+### 1. **Purpose of Type Declaration Extension**
+
+NextAuth provides some default types for `Session`, `User`, and `JWT`. However, you may want to include additional fields like `_id`, `isVerified`, `isAcceptingMessages`, and `username` to manage specific user properties in the authentication flow. This TypeScript declaration file augments the default types, enabling you to store and access custom properties in the user session and JWT tokens.
+
+---
+
+### 2. **Extending `Session` Interface**
+
+```typescript
+interface Session {
+  user: {
+    _id?: string;
+    isVerified?: boolean;
+    isAcceptingMessages?: boolean;
+    username?: string;
+  } & DefaultSession["user"];
+}
+```
+
+- **`Session`**: The session object holds the information that is passed between the server and the client. Here, you add the following custom fields:
+  - **`_id`**: The MongoDB ObjectId of the user, stored as a string.
+  - **`isVerified`**: A boolean indicating whether the user has verified their email.
+  - **`isAcceptingMessages`**: A boolean showing whether the user has allowed incoming messages.
+  - **`username`**: The username of the user.
+  
+  The `& DefaultSession["user"]` ensures that the default `user` properties (like `email`, `name`, etc.) are still available alongside the custom fields.
+
+---
+
+### 3. **Extending `User` Interface**
+
+```typescript
+interface User {
+  _id?: string;
+  isVerified?: boolean;
+  isAcceptingMessages?: boolean;
+  username?: string;
+}
+```
+
+- **`User`**: Represents the user object in NextAuth. The custom fields added here mirror the ones added to the `Session` interface (`_id`, `isVerified`, `isAcceptingMessages`, and `username`).
+
+This interface ensures that these fields are present when you retrieve the user data directly (for instance, after the `authorize` function in your NextAuth options).
+
+---
+
+### 4. **Extending `JWT` Interface**
+
+```typescript
+interface JWT {
+  _id?: string;
+  isVerified?: boolean;
+  isAcceptingMessages?: boolean;
+  username?: string;
+}
+```
+
+- **`JWT`**: The JWT interface is responsible for defining the token's payload that is generated during authentication. This type extension adds the same fields (`_id`, `isVerified`, `isAcceptingMessages`, `username`) to the token, ensuring that this information is stored and accessible in the JWT.
+
+---
+
+### 5. **Why Use `declare module`?**
+
+`declare module` allows you to extend the types of external libraries—in this case, **NextAuth**. The `declare module "next-auth"` and `declare module "next-auth/jwt"` sections ensure that these type extensions are globally available within your project when working with NextAuth and its JWT handling.
+
+---
+
+### 6. **Key Points**
+
+- This type extension ensures that your session and JWT can store additional fields (`_id`, `isVerified`, etc.) alongside the default properties.
+- You can access and modify these fields when handling authentication logic in your NextAuth callbacks (e.g., `session`, `jwt`, and `authorize` functions).
+- These extended fields make it easy to implement features like user verification, message handling, or any other custom logic specific to your application.
+
+This structure enhances type safety in your Next.js app by making sure TypeScript knows about the custom fields you're working with when using NextAuth.
+
+### Middleware
+
+This middleware file is designed to handle authentication and route redirection for specific paths in a Next.js application using **NextAuth**. Here's a detailed explanation of how this middleware works:
+
+### Key Concept
+
+1. **`NextRequest` and `NextResponse`**: These are used to interact with the request and response objects in the middleware. `NextRequest` gives access to details about the incoming request (like headers, URL, etc.), and `NextResponse` allows sending a response, redirect, or continuing the request flow.
+  
+2. **`getToken` from `next-auth/jwt`**: This function is used to extract the authentication token from the request. The token indicates if a user is logged in, and it contains the session details.
+
+3. **URL Matching**:
+   - The `config` section defines which paths this middleware applies to, using the `matcher` property:
+
+     ```js
+     matcher: ['/dashboard/:path*', '/sign-in', '/sign-up', '/', '/verify/:path*']
+     ```
+
+     This means that the middleware will run for:
+     - `/dashboard/*` paths
+     - `/sign-in`, `/sign-up`, `/` (home page), and `/verify/*` paths
+
+### How the Middleware Works
+
+1. **Checking User Authentication (`token`)**:
+   The middleware first attempts to get the authentication token using `getToken`. If the token exists, it indicates that the user is authenticated.
+
+2. **Redirect Logic**:
+
+   - **Redirect authenticated users away from public pages**:
+     If the user is authenticated (`token` exists) and is trying to access **public routes** such as:
+     - `/sign-in`
+     - `/sign-up`
+     - `/verify/*`
+     - `/` (home page)
+
+     The user will be **redirected to the dashboard** (`/dashboard`). This ensures that authenticated users don't access sign-up or sign-in pages again.
+
+     ```ts
+     if (
+       token &&
+       (url.pathname.startsWith('/sign-in') ||
+         url.pathname.startsWith('/sign-up') ||
+         url.pathname.startsWith('/verify') ||
+         url.pathname === '/')
+     ) {
+       return NextResponse.redirect(new URL('/dashboard', request.url));
+     }
+     ```
+
+   - **Redirect unauthenticated users away from protected pages**:
+     If the user is **not authenticated** (no token) and tries to access a **protected route** like `/dashboard/*`, they are **redirected to the sign-in page** (`/sign-in`).
+
+     ```ts
+     if (!token && url.pathname.startsWith('/dashboard')) {
+       return NextResponse.redirect(new URL('/sign-in', request.url));
+     }
+     ```
+
+3. **Allow Access if Conditions Are Met**:
+   If none of the redirection conditions are met, the middleware allows the request to continue to the requested page by returning `NextResponse.next()`.
+
+   ```ts
+   return NextResponse.next();
+   ```
+
+### Summary of Middleware Flow
+
+- **Authenticated users** trying to access **sign-in**, **sign-up**, **verify**, or the **home page** will be **redirected to the dashboard**.
+- **Unauthenticated users** trying to access **dashboard** routes will be **redirected to the sign-in page**.
+- Other requests proceed normally.
+
+### Next Steps
+
+To use this, ensure you have the following:
+
+- Proper setup of **NextAuth** with JWT tokens.
+- Correct routes defined for **sign-in**, **sign-up**, **dashboard**, and **verify** pages.
+
+This approach provides simple route protection and redirection based on authentication status.
