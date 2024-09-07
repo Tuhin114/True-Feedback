@@ -722,3 +722,97 @@ To use this, ensure you have the following:
 - Correct routes defined for **sign-in**, **sign-up**, **dashboard**, and **verify** pages.
 
 This approach provides simple route protection and redirection based on authentication status.
+
+## Check username schema via zod and uniqueness
+
+This code defines a `GET` request handler that checks if a username is unique and available in the database. It utilizes `zod` for schema validation and Mongoose to interact with a MongoDB database.
+
+### Explanation
+
+1. **Database Connection**:
+   - The `dbConnect` function is called at the start to establish a connection with the MongoDB database. This ensures that the database is ready to handle queries.
+
+   ```ts
+   await dbConnect();
+   ```
+
+2. **Schema Validation**:
+   - The `zod` library is used to define a schema, `UsernameQuerySchema`, which validates the `username` query parameter. It uses `usernameValidation` from the `signUpSchema` file to ensure that the username follows predefined validation rules.
+
+   ```ts
+   const result = UsernameQuerySchema.safeParse(queryParams);
+   ```
+
+   - If the validation fails, the errors are formatted and returned with a `400` status code, signaling that the input is invalid.
+
+   ```ts
+   if (!result.success) {
+      const usernameErrors = result.error.format().username?._errors || [];
+      return Response.json(
+        {
+          success: false,
+          message: usernameErrors.length > 0
+              ? usernameErrors.join(', ')
+              : 'Invalid query parameters',
+        },
+        { status: 400 }
+      );
+    }
+   ```
+
+3. **Username Query**:
+   - The `username` is extracted from the query parameters using `searchParams.get()`, and then validated using the schema.
+   - If the validation succeeds, the code checks if the username is already taken by querying the database for an existing, verified user.
+
+   ```ts
+   const existingVerifiedUser = await UserModel.findOne({
+      username,
+      isVerified: true,
+    });
+   ```
+
+   - If a verified user with the given username exists, a response is sent indicating that the username is already taken.
+
+   ```ts
+   if (existingVerifiedUser) {
+      return Response.json(
+        {
+          success: false,
+          message: 'Username is already taken',
+        },
+        { status: 200 }
+      );
+    }
+   ```
+
+4. **Response**:
+   - If the username is not taken, the response indicates that the username is available and unique.
+
+   ```ts
+   return Response.json(
+     {
+       success: true,
+       message: 'Username is unique',
+     },
+     { status: 200 }
+   );
+   ```
+
+5. **Error Handling**:
+   - In case of any unexpected errors (like database or server issues), a `500` status code is returned with an appropriate error message.
+
+   ```ts
+   return Response.json(
+     {
+       success: false,
+       message: 'Error checking username',
+     },
+     { status: 500 }
+   );
+   ```
+
+### Summary1
+
+- The handler checks if a username is already taken by querying the database for verified users.
+- It uses `zod` for query validation to ensure the username meets the required format.
+- It returns a JSON response indicating whether the username is unique or already taken.
