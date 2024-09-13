@@ -1335,3 +1335,8 @@ This API handler allows sending a message to a user by updating their message ar
 - **Database Operations:** Efficiently updates the user's message list and handles database transactions.
 
 This handler ensures that messages are only sent to users who are actively accepting them and provides appropriate feedback for different scenarios.
+
+## AI Integration
+
+- `npm install ai openai`
+copy-paste
