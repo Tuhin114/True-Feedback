@@ -894,3 +894,221 @@ Here’s a more detailed explanation of the core parts of the verification flow:
 6. **Error Handling**: Logs errors and returns a generic response to the user if any unexpected issues arise.
 
 This approach effectively handles the entire verification process while ensuring that the user’s actions (submitting a verification code) are validated thoroughly and errors are properly managed.
+
+## isAccepting messages
+
+Here's a detailed breakdown of the provided code for updating a user's message acceptance status:
+
+### **Overview**
+
+The code defines an asynchronous `POST` function to update the `isAcceptingMessages` status of a user. This function:
+
+1. Connects to the database.
+2. Checks the user's authentication session.
+3. Updates the user's `isAcceptingMessages` status in the database.
+4. Returns appropriate responses based on the success or failure of the operation.
+
+### **Detailed Explanation**
+
+#### **1. Database Connection**
+
+```javascript
+await dbConnect();
+```
+
+- **Purpose**: Establishes a connection to the MongoDB database.
+- **Importance**: Necessary to perform any database operations such as finding and updating user records.
+
+#### **2. Session Management**
+
+```javascript
+const session = await getServerSession(authOptions);
+const user: User = session?.user;
+```
+
+- **Function**: `getServerSession` retrieves the current session based on the `authOptions` configuration.
+- **Purpose**: Ensures the request is made by an authenticated user.
+- **Handling**: Checks if `session` and `session.user` exist to verify the user is authenticated. If not authenticated, returns a `401 Unauthorized` response.
+
+#### **3. User Identification**
+
+```javascript
+const userId = user._id;
+```
+
+- **Purpose**: Extracts the user ID from the session.
+- **Usage**: Needed to find and update the specific user document in the database.
+
+#### **4. Parsing Request Data**
+
+```javascript
+const { acceptMessages } = await request.json();
+```
+
+- **Purpose**: Extracts the `acceptMessages` field from the incoming JSON request body. This field determines whether the user accepts messages.
+
+#### **5. Updating User Document**
+
+```javascript
+const updatedUser = await UserModel.findByIdAndUpdate(
+  userId,
+  { isAcceptingMessages: acceptMessages },
+  { new: true }
+);
+```
+
+- **Purpose**: Updates the user's `isAcceptingMessages` field in the database.
+- **Parameters**:
+  - `userId`: The ID of the user to update.
+  - `{ isAcceptingMessages: acceptMessages }`: The update to apply.
+  - `{ new: true }`: Option to return the updated document rather than the old one.
+
+#### **6. Response Handling**
+
+- **Success Case**:
+
+  ```javascript
+  return Response.json(
+    {
+      success: true,
+      message: 'Message acceptance status updated successfully',
+      updatedUser,
+    },
+    { status: 200 }
+  );
+  ```
+
+  - **Purpose**: Confirms the update was successful and includes the updated user data in the response.
+  
+- **Failure Cases**:
+  - **User Not Found**:
+
+    ```javascript
+    return Response.json(
+      {
+        success: false,
+        message: 'Unable to find user to update message acceptance status',
+      },
+      { status: 404 }
+    );
+    ```
+
+    - **Purpose**: Handles the case where the user document does not exist.
+
+  - **Error Handling**:
+
+    ```javascript
+    console.error('Error updating message acceptance status:', error);
+    return Response.json(
+      { success: false, message: 'Error updating message acceptance status' },
+      { status: 500 }
+    );
+    ```
+
+    - **Purpose**: Logs any errors encountered during the update operation and returns a `500 Internal Server Error` response.
+
+### **Summary of Key Points**
+
+1. **Database Connection**: Ensures that the app is connected to MongoDB.
+2. **Session Verification**: Confirms the request is from an authenticated user using `getServerSession`.
+3. **Request Handling**: Extracts and parses the `acceptMessages` field from the request.
+4. **Update Operation**: Updates the user document in MongoDB with the new message acceptance status.
+5. **Response Management**: Provides appropriate responses based on the outcome of the operation, including handling errors and success cases.
+
+This process ensures that only authenticated users can update their message preferences, and it handles potential issues with user identification and database operations.
+
+Here’s a detailed breakdown of the `GET` request handler, which retrieves a user's message acceptance status from the database:
+
+### **Overview1**
+
+This handler performs the following:
+
+1. **Database Connection**: Establishes a connection to MongoDB.
+2. **Session Verification**: Checks if the user is authenticated by validating the session.
+3. **User Retrieval**: Looks up the user in the database based on their session data.
+4. **Response Handling**: Returns the user's message acceptance status if found, otherwise responds with error messages.
+
+### **Detailed Explanation***
+
+#### **1. Database Connection***
+
+```javascript
+await dbConnect();
+```
+
+- **Function**: This ensures a connection to the MongoDB database is established.
+- **Importance**: Required before any database operation like retrieving or modifying user data.
+
+#### **2. Session Management1**
+
+```javascript
+const session = await getServerSession(authOptions);
+const user = session?.user;
+```
+
+- **Function**: Uses `getServerSession` to retrieve the user's session, based on the provided authentication options (`authOptions`).
+- **Purpose**: Confirms if a user is logged in and authenticated. The session data includes information about the user, such as their ID, which is used to find their record in the database.
+- **Handling**: Checks if both `session` and `session.user` exist. If not, returns a `401 Unauthorized` response.
+
+#### **3. User Identification & Retrieval**
+
+```javascript
+const foundUser = await UserModel.findById(user._id);
+```
+
+- **Function**: Finds the user document in MongoDB by their `_id`, which is extracted from the session data.
+- **Purpose**: This step ensures that the user exists in the database before performing any operations on their data.
+
+#### **4. User Not Found Check**
+
+```javascript
+if (!foundUser) {
+  return Response.json(
+    { success: false, message: 'User not found' },
+    { status: 404 }
+  );
+}
+```
+
+- **Function**: If the user is not found in the database (i.e., `foundUser` is `null`), a `404 Not Found` response is returned.
+- **Purpose**: This handles the edge case where the user exists in the session but is missing in the database (possibly due to data deletion).
+
+#### **5. Response Handling**
+
+- **Success Case**:
+
+  ```javascript
+  return Response.json(
+    {
+      success: true,
+      isAcceptingMessages: foundUser.isAcceptingMessages,
+    },
+    { status: 200 }
+  );
+  ```
+
+  - **Purpose**: If the user is found, the user's `isAcceptingMessages` status is returned in the response. This shows whether the user is accepting messages or not.
+
+- **Error Handling**:
+
+  ```javascript
+  console.error('Error retrieving message acceptance status:', error);
+  return Response.json(
+    { success: false, message: 'Error retrieving message acceptance status' },
+    { status: 500 }
+  );
+  ```
+
+  - **Purpose**: Any errors that occur while querying the database are caught and logged. A `500 Internal Server Error` response is returned if any exceptions occur during the process.
+
+### **Key Points**
+
+1. **Database Connection**: Establishes a connection with MongoDB before performing any operations.
+2. **Session Verification**: Confirms if the user is authenticated and prevents unauthenticated access.
+3. **User Retrieval**: Fetches the user data from the database using the ID from the session.
+4. **Success Response**: Returns the `isAcceptingMessages` field (i.e., whether the user accepts messages) if the user is found.
+5. **Error Handling**: Handles cases where the user is not found or when there’s an issue with the database query.
+
+### **Summary**
+
+This `GET` request handler effectively checks the user's authentication, retrieves the user's message acceptance status from the database, and provides the appropriate response. If there are any issues like unauthenticated access or a missing user record, it returns the corresponding error message.
