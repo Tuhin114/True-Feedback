@@ -1231,3 +1231,107 @@ catch (error) {
 - **Purpose**: Catches any unexpected errors during the aggregation process or database interaction, and logs the error for debugging. It returns a `500 Internal Server Error` if something goes wrong.
 
 ---
+
+## Send-messages
+
+This API handler allows sending a message to a user by updating their message array in the database. Here’s a detailed breakdown:
+
+### **Main Steps:**
+
+1. **Database Connection:**
+
+   ```typescript
+   await dbConnect();
+   ```
+
+   - Connects to the MongoDB database using a utility function.
+
+2. **Request Parsing:**
+
+   ```typescript
+   const { username, content } = await request.json();
+   ```
+
+   - Extracts the `username` and `content` from the incoming JSON request body.
+
+3. **User Lookup:**
+
+   ```typescript
+   const user = await UserModel.findOne({ username }).exec();
+   ```
+
+   - Finds the user in the database by their username.
+
+4. **User Existence Check:**
+
+   ```typescript
+   if (!user) {
+     return Response.json(
+       { message: 'User not found', success: false },
+       { status: 404 }
+     );
+   }
+   ```
+
+   - Returns a 404 status if the user is not found.
+
+5. **Message Acceptance Check:**
+
+   ```typescript
+   if (!user.isAcceptingMessages) {
+     return Response.json(
+       { message: 'User is not accepting messages', success: false },
+       { status: 403 } // 403 Forbidden status
+     );
+   }
+   ```
+
+   - Checks if the user is accepting messages. If not, returns a 403 status indicating forbidden access.
+
+6. **Message Creation:**
+
+   ```typescript
+   const newMessage = { content, createdAt: new Date() };
+   ```
+
+   - Creates a new message object with the current date.
+
+7. **Message Saving:**
+
+   ```typescript
+   user.messages.push(newMessage as Message);
+   await user.save();
+   ```
+
+   - Adds the new message to the user's `messages` array and saves the updated user document.
+
+8. **Success Response:**
+
+   ```typescript
+   return Response.json(
+     { message: 'Message sent successfully', success: true },
+     { status: 201 }
+   );
+   ```
+
+   - Returns a 201 status indicating successful message creation.
+
+9. **Error Handling:**
+
+   ```typescript
+   console.error('Error adding message:', error);
+   return Response.json(
+     { message: 'Internal server error', success: false },
+     { status: 500 }
+   );
+   ```
+
+   - Logs any errors and returns a 500 status for internal server errors.
+
+### **Key Points:**
+
+- **Validation:** Checks if the user exists and whether they are accepting messages.
+- **Error Handling:** Provides clear responses for different failure cases.
+- **Database Operations:** Efficiently updates the user's message list and handles database transactions.
+
+This handler ensures that messages are only sent to users who are actively accepting them and provides appropriate feedback for different scenarios.
