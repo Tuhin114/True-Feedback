@@ -1340,3 +1340,7 @@ This handler ensures that messages are only sent to users who are actively accep
 
 - `npm install ai openai`
 copy-paste
+
+## Frontend - Shadcn/ui
+
+-`npx shadcn@latest init`
