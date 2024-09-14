@@ -1344,3 +1344,125 @@ copy-paste
 ## Frontend - Shadcn/ui
 
 -`npx shadcn@latest init`
+
+## Sign-up
+
+- `npm install use-debounce`
+- `npx shadcn@latest add toast`
+- `npm install axios`
+
+This `SignUpForm` component implements a user registration form with username uniqueness check and submission flow. Here's a detailed breakdown of the key functionalities:
+
+### **State Management:**
+
+1. **Username & Messages:**
+   - `username`: Holds the current username input.
+   - `usernameMessage`: Stores feedback on username uniqueness, updated dynamically based on validation.
+   - `isCheckingUsername`: Tracks whether the system is checking username availability.
+   - `isSubmitting`: Indicates if the form is in the process of being submitted to prevent multiple submissions.
+
+2. **Debouncing Username Input:**
+   - `debouncedUsername`: Implements a 300ms debounce on the username input to avoid sending a validation request on every keystroke.
+
+### **Form Handling:**
+
+1. **useForm Hook:**
+
+   ```typescript
+   const form = useForm<z.infer<typeof signUpSchema>>({
+     resolver: zodResolver(signUpSchema),
+     defaultValues: {
+       username: '',
+       email: '',
+       password: '',
+     },
+   });
+   ```
+
+   - Utilizes React Hook Form's `useForm` hook with `zodResolver` for schema-based validation. It binds the form to `signUpSchema` and sets default values for `username`, `email`, and `password`.
+
+### **Username Uniqueness Check:**
+
+1. **Effect Hook for Username Validation:**
+
+   ```typescript
+   useEffect(() => {
+     const checkUsernameUnique = async () => {
+       if (debouncedUsername) {
+         setIsCheckingUsername(true);
+         setUsernameMessage(''); 
+         try {
+           const response = await axios.get<ApiResponse>(
+             `/api/check-username-unique?username=${debouncedUsername}`
+           );
+           setUsernameMessage(response.data.message);
+         } catch (error) {
+           const axiosError = error as AxiosError<ApiResponse>;
+           setUsernameMessage(
+             axiosError.response?.data.message ?? 'Error checking username'
+           );
+         } finally {
+           setIsCheckingUsername(false);
+         }
+       }
+     };
+     checkUsernameUnique();
+   }, [debouncedUsername]);
+   ```
+
+   - This effect runs whenever the debounced `username` changes.
+   - It sends an API request to check if the username is unique.
+   - Displays a message based on the server response (e.g., "Username available" or "Username already taken").
+   - Handles loading states via `isCheckingUsername`.
+
+### **Form Submission:**
+
+1. **onSubmit Handler:**
+
+   ```typescript
+   const onSubmit = async (data: z.infer<typeof signUpSchema>) => {
+     setIsSubmitting(true);
+     try {
+       const response = await axios.post<ApiResponse>('/api/sign-up', data);
+
+       toast({
+         title: 'Success',
+         description: response.data.message,
+       });
+
+       router.replace(`/verify/${username}`);
+       setIsSubmitting(false);
+     } catch (error) {
+       console.error('Error during sign-up:', error);
+
+       const axiosError = error as AxiosError<ApiResponse>;
+
+       let errorMessage = axiosError.response?.data.message || 'There was a problem with your sign-up. Please try again.';
+
+       toast({
+         title: 'Sign Up Failed',
+         description: errorMessage,
+         variant: 'destructive',
+       });
+
+       setIsSubmitting(false);
+     }
+   };
+   ```
+
+   - This function is called when the form is submitted.
+   - Sends a `POST` request with the form data (username, email, password) to the sign-up API.
+   - On success, the user is redirected to a verification page (`/verify/${username}`).
+   - If an error occurs, it displays a descriptive error message via `toast`.
+
+### **User Feedback:**
+
+- **Loading Indicators:**
+  - Both `isCheckingUsername` and `isSubmitting` are used to manage form states, showing loading indicators while checking the username or submitting the form.
+  
+- **Toasts:**
+  - Feedback messages (success or failure) are displayed via `toast()` after each API call.
+
+### **Conclusion:**
+
+This form efficiently handles user registration with real-time username availability checking, form validation, and error handling. By using debouncing, async/await API calls, and conditional feedback (toasts), it ensures a smooth user experience.
