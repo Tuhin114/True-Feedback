@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useDebounce } from "use-debounce";
+import { useDebouncedCallback } from "use-debounce";
 import * as z from "zod";
 
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,8 @@ export default function SignUpForm() {
   const [usernameMessage, setUsernameMessage] = useState("");
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const debouncedUsername = useDebounce(username, 300);
+
+  const debounced = useDebouncedCallback(setUsername, 300);
 
   const router = useRouter();
   const { toast } = useToast();
@@ -44,12 +45,12 @@ export default function SignUpForm() {
 
   useEffect(() => {
     const checkUsernameUnique = async () => {
-      if (debouncedUsername) {
+      if (username) {
         setIsCheckingUsername(true);
         setUsernameMessage(""); // Reset message
         try {
           const response = await axios.get<ApiResponse>(
-            `/api/check-username-unique?username=${debouncedUsername}`
+            `/api/check-username-unique?username=${username}`
           );
           setUsernameMessage(response.data.message);
         } catch (error) {
@@ -63,7 +64,7 @@ export default function SignUpForm() {
       }
     };
     checkUsernameUnique();
-  }, [debouncedUsername]);
+  }, [username]);
 
   const onSubmit = async (data: z.infer<typeof signUpSchema>) => {
     setIsSubmitting(true);
@@ -79,13 +80,11 @@ export default function SignUpForm() {
 
       setIsSubmitting(false);
     } catch (error) {
-      console.error("Error during sign-up:", error);
-
       const axiosError = error as AxiosError<ApiResponse>;
 
-      // Default error message
-      let errorMessage = axiosError.response?.data.message;
-      ("There was a problem with your sign-up. Please try again.");
+      let errorMessage =
+        axiosError.response?.data.message ||
+        "There was a problem with your sign-up. Please try again.";
 
       toast({
         title: "Sign Up Failed",
@@ -118,7 +117,7 @@ export default function SignUpForm() {
                     {...field}
                     onChange={(e) => {
                       field.onChange(e);
-                      setUsername(e.target.value);
+                      debounced(e.target.value); // Debounce here
                     }}
                   />
                   {isCheckingUsername && <Loader2 className="animate-spin" />}
@@ -143,7 +142,7 @@ export default function SignUpForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Email</FormLabel>
-                  <Input {...field} name="email" />
+                  <Input {...field} />
                   <p className="text-muted text-gray-400 text-sm">
                     We will send you a verification code
                   </p>
@@ -151,14 +150,13 @@ export default function SignUpForm() {
                 </FormItem>
               )}
             />
-
             <FormField
               name="password"
               control={form.control}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Password</FormLabel>
-                  <Input type="password" {...field} name="password" />
+                  <Input type="password" {...field} />
                   <FormMessage />
                 </FormItem>
               )}
