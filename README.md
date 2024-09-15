@@ -1466,3 +1466,78 @@ This `SignUpForm` component implements a user registration form with username un
 ### **Conclusion:**
 
 This form efficiently handles user registration with real-time username availability checking, form validation, and error handling. By using debouncing, async/await API calls, and conditional feedback (toasts), it ensures a smooth user experience.
+
+## Verify code
+
+This `VerifyAccount` component implements an account verification form, which is part of a user onboarding process. Users are asked to input a verification code, which is then validated against the server.
+
+### Key Components and Functionality
+
+1. **Form Setup:**
+   - The form utilizes `react-hook-form` for managing form state and validation, combined with `zodResolver` to integrate Zod schema-based validation.
+   - The `verifySchema` is used to validate the verification code input field.
+
+   ```typescript
+   const form = useForm<z.infer<typeof verifySchema>>({
+     resolver: zodResolver(verifySchema),
+   });
+   ```
+
+2. **Axios for API Call:**
+   - The `axios.post` method is used to send a request to the `/api/verify-code` endpoint, with the verification `code` and the `username` retrieved from the URL params.
+
+   ```typescript
+   const response = await axios.post<ApiResponse>(`/api/verify-code`, {
+     username: params.username,
+     code: data.code,
+   });
+   ```
+
+3. **Success and Error Handling:**
+   - On successful verification, a success toast is displayed, and the user is redirected to the `/sign-in` page.
+   - In case of an error, a toast with a destructive style is shown, detailing the error message (either from the API or a generic one).
+
+   ```typescript
+   toast({
+     title: 'Success',
+     description: response.data.message,
+   });
+
+   toast({
+     title: 'Verification Failed',
+     description:
+       axiosError.response?.data.message ?? 'An error occurred. Please try again.',
+     variant: 'destructive',
+   });
+   ```
+
+4. **Layout and Styling:**
+   - The component is styled using Tailwind CSS for a clean, responsive design.
+   - It centers the content vertically and horizontally on the screen, with a maximum width of `md` for the form container.
+
+   ```html
+   <div className="flex justify-center items-center min-h-screen bg-gray-100">
+     <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-md">
+   ```
+
+5. **FormField and Input Components:**
+   - The `FormField`, `FormItem`, `FormLabel`, `FormMessage`, and `Input` components are used from a custom UI library, providing a modular way to build form elements.
+   - These components ensure proper accessibility and error display.
+
+   ```typescript
+   <FormField
+     name="code"
+     control={form.control}
+     render={({ field }) => (
+       <FormItem>
+         <FormLabel>Verification Code</FormLabel>
+         <Input {...field} />
+         <FormMessage />
+       </FormItem>
+     )}
+   />
+   ```
+
+### **Conclusion :**
+
+This component provides a functional and user-friendly UI for verifying user accounts, leveraging form validation, API calls, and proper user feedback. Tailwind CSS is used to ensure a responsive and minimal design, while `react-hook-form` and Zod handle form validation seamlessly.
