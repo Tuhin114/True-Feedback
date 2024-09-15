@@ -1541,3 +1541,87 @@ This `VerifyAccount` component implements an account verification form, which is
 ### **Conclusion :**
 
 This component provides a functional and user-friendly UI for verifying user accounts, leveraging form validation, API calls, and proper user feedback. Tailwind CSS is used to ensure a responsive and minimal design, while `react-hook-form` and Zod handle form validation seamlessly.
+
+## Sign-In
+
+This `SignInForm` component allows users to log in using either their email or username and password. It integrates with `NextAuth.js` for handling authentication, uses `react-hook-form` with `zod` for form validation, and provides a user-friendly interface with real-time feedback using toasts.
+
+### Key Features1
+
+1. **Form Setup with Validation:**
+   - `react-hook-form` is combined with `zod` for form state management and validation, ensuring proper data entry.
+   - The `signInSchema` is used to validate both the identifier (email or username) and password fields.
+
+   ```typescript
+   const form = useForm<z.infer<typeof signInSchema>>({
+     resolver: zodResolver(signInSchema),
+     defaultValues: {
+       identifier: '',
+       password: '',
+     },
+   });
+   ```
+
+2. **Authentication using `NextAuth.js`:**
+   - The `signIn` function from `next-auth/react` is used to handle user authentication. The `credentials` provider is utilized here, and the `redirect: false` option ensures that redirection after authentication is managed manually.
+
+   ```typescript
+   const result = await signIn('credentials', {
+     redirect: false,
+     identifier: data.identifier,
+     password: data.password,
+   });
+   ```
+
+3. **Toast Notifications for Feedback:**
+   - A toast is displayed based on the authentication result. If the credentials are incorrect, a destructive toast is triggered, otherwise, it redirects to the dashboard upon success.
+   - The error handling logic checks for `CredentialsSignin` and other potential errors, providing appropriate messages.
+
+   ```typescript
+   if (result?.error) {
+     if (result.error === 'CredentialsSignin') {
+       toast({
+         title: 'Login Failed',
+         description: 'Incorrect username or password',
+         variant: 'destructive',
+       });
+     } else {
+       toast({
+         title: 'Error',
+         description: result.error,
+         variant: 'destructive',
+       });
+     }
+   }
+   ```
+
+4. **User-Friendly Interface with Tailwind CSS:**
+   - The component is styled using Tailwind CSS, ensuring a visually appealing and responsive layout.
+   - The form and its fields are neatly structured with proper padding, spacing, and shadow effects to enhance the user experience.
+   - The "Sign In" button is styled to cover the full width, making it clear and easy to interact with.
+
+   ```html
+   <Button className='w-full' type="submit">Sign In</Button>
+   ```
+
+5. **Redirect After Success:**
+   - If authentication is successful, the user is redirected to the `/dashboard` page using the `router.replace` method.
+
+   ```typescript
+   if (result?.url) {
+     router.replace('/dashboard');
+   }
+   ```
+
+6. **Link to Sign Up:**
+   - Below the form, a link is provided to navigate users to the sign-up page if they don't have an account. The link is styled with Tailwind for a smooth hover effect.
+
+   ```html
+   <Link href="/sign-up" className="text-blue-600 hover:text-blue-800">
+     Sign up
+   </Link>
+   ```
+
+### **Conclusion:1**
+
+This `SignInForm` is a robust and user-friendly login interface that efficiently handles user authentication with appropriate validation and feedback mechanisms. By using `NextAuth.js` for handling credentials, `react-hook-form` for form management, and Tailwind CSS for styling, it creates a seamless sign-in experience for users.
