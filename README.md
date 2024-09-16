@@ -1801,3 +1801,5 @@ In this `UserDashboard` component, the user can manage their messages and messag
 ### Conclusion1
 
 This `UserDashboard` component integrates functionality like fetching messages, updating user settings, and managing UI states with loading indicators, all while leveraging session management via NextAuth. It uses a combination of `axios` for API calls, `react-hook-form` for form handling, and Tailwind CSS for styling the UI.
+
+- `npm install embla-carousel-autoplay`
