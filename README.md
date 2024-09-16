@@ -1625,3 +1625,82 @@ This `SignInForm` component allows users to log in using either their email or u
 ### **Conclusion:1**
 
 This `SignInForm` is a robust and user-friendly login interface that efficiently handles user authentication with appropriate validation and feedback mechanisms. By using `NextAuth.js` for handling credentials, `react-hook-form` for form management, and Tailwind CSS for styling, it creates a seamless sign-in experience for users.
+
+## Delete Message
+
+In this `DELETE` API route handler, the function removes a specific message from the logged-in user's message list by its ID. Let's break down the key parts of the code:
+
+### Key Features2
+
+1. **Database Connection:**
+   - It starts by ensuring a connection to the MongoDB database using `dbConnect()`.
+
+   ```typescript
+   await dbConnect();
+   ```
+
+2. **Session Authentication:**
+   - The user's session is validated using `getServerSession` with the authentication options from NextAuth.
+   - If no valid session is found, an error response is returned with status 401.
+
+   ```typescript
+   const session = await getServerSession(authOptions);
+   const _user: User = session?.user;
+   if (!session || !_user) {
+     return Response.json(
+       { success: false, message: 'Not authenticated' },
+       { status: 401 }
+     );
+   }
+   ```
+
+3. **Message Deletion Logic:**
+   - It extracts the `messageid` from the request parameters and uses the `$pull` operator to remove the message from the user's `messages` array in the database.
+   - The MongoDB `updateOne` query removes the message where the message `_id` matches the provided `messageId`.
+
+   ```typescript
+   const updateResult = await UserModel.updateOne(
+     { _id: _user._id },
+     { $pull: { messages: { _id: messageId } } }
+   );
+   ```
+
+4. **Handling Success & Error Responses:**
+   - If the message was successfully deleted (i.e., `modifiedCount > 0`), a success response is returned with status 200.
+   - If no message was deleted (e.g., the message doesn't exist), it returns a 404 response indicating that the message wasn't found.
+   - If there's an error during the operation, a 500 error is logged and returned.
+
+   ```typescript
+   if (updateResult.modifiedCount === 0) {
+     return Response.json(
+       { message: 'Message not found or already deleted', success: false },
+       { status: 404 }
+     );
+   }
+
+   return Response.json(
+     { message: 'Message deleted', success: true },
+     { status: 200 }
+   );
+   ```
+
+5. **Error Handling:**
+   - Catches any runtime errors that might occur during the deletion process and returns a 500 response with a generic error message.
+
+   ```typescript
+   catch (error) {
+     console.error('Error deleting message:', error);
+     return Response.json(
+       { message: 'Error deleting message', success: false },
+       { status: 500 }
+     );
+   }
+   ```
+
+### Improvements
+
+- **Error Specificity:** To improve error feedback, you could enhance the error logging with more context, such as the `messageId` or the user trying to delete the message.
+  
+### Conclusion
+
+This handler efficiently handles message deletion for authenticated users, providing appropriate responses for success, message non-existence, and errors.
