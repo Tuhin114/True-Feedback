@@ -1704,3 +1704,100 @@ In this `DELETE` API route handler, the function removes a specific message from
 ### Conclusion
 
 This handler efficiently handles message deletion for authenticated users, providing appropriate responses for success, message non-existence, and errors.
+
+## Dashboard
+
+-`npx shadcn@latest add separator`
+-`npx shadcn@latest add switch`
+
+In this `UserDashboard` component, the user can manage their messages and message acceptance settings in an interactive dashboard. Here’s an overview of how it works:
+
+### Key Features3
+
+1. **Fetching Messages & Settings:**
+   - **Messages**: The component fetches the user's messages and displays them in a card layout using the `MessageCard` component.
+   - **Accept Messages Setting**: It also fetches and controls the user's "accept messages" setting using a `Switch` UI component.
+   - Both actions use the `useEffect` hook to trigger the initial data fetch when the session is available.
+
+   ```typescript
+   useEffect(() => {
+     if (!session || !session.user) return;
+     fetchMessages();
+     fetchAcceptMessages();
+   }, [session, setValue, toast, fetchAcceptMessages, fetchMessages]);
+   ```
+
+2. **Session Management:**
+   - The session is managed using `useSession` from `next-auth`. If no valid session is found, the component renders an empty `<div>`, ensuring non-logged-in users cannot access this dashboard.
+
+   ```typescript
+   const { data: session } = useSession();
+   if (!session || !session.user) {
+     return <div></div>;
+   }
+   ```
+
+3. **Profile URL Copying:**
+   - The user can copy their unique profile URL with a button. This uses the `navigator.clipboard.writeText` method to copy the URL to the clipboard.
+
+   ```typescript
+   const copyToClipboard = () => {
+     navigator.clipboard.writeText(profileUrl);
+     toast({
+       title: "URL Copied!",
+       description: "Profile URL has been copied to clipboard.",
+     });
+   };
+   ```
+
+4. **Message Management:**
+   - Users can refresh the message list using the refresh button. The messages are displayed in a grid, and each message can be deleted through the `MessageCard` component.
+   - When deleting a message, the `handleDeleteMessage` function filters out the deleted message from the `messages` state.
+
+   ```typescript
+   const handleDeleteMessage = (messageId: string) => {
+     setMessages(messages.filter((message) => message._id !== messageId));
+   };
+   ```
+
+5. **Message Acceptance Switch:**
+   - The `Switch` UI component controls whether the user accepts messages or not. The setting is updated via a `POST` request, and a loading state is shown during the update.
+
+   ```typescript
+   const handleSwitchChange = async () => {
+     try {
+       const response = await axios.post<ApiResponse>("/api/accept-messages", {
+         acceptMessages: !acceptMessages,
+       });
+       setValue("acceptMessages", !acceptMessages);
+       toast({
+         title: response.data.message,
+         variant: "default",
+       });
+     } catch (error) {
+       const axiosError = error as AxiosError<ApiResponse>;
+       toast({
+         title: "Error",
+         description:
+           axiosError.response?.data.message ??
+           "Failed to update message settings",
+         variant: "destructive",
+       });
+     }
+   };
+   ```
+
+6. **Loading Indicators:**
+   - While messages or settings are being fetched, loading spinners are displayed using the `Loader2` component.
+
+   ```typescript
+   {isLoading ? (
+     <Loader2 className="h-4 w-4 animate-spin" />
+   ) : (
+     <RefreshCcw className="h-4 w-4" />
+   )}
+   ```
+
+### Conclusion1
+
+This `UserDashboard` component integrates functionality like fetching messages, updating user settings, and managing UI states with loading indicators, all while leveraging session management via NextAuth. It uses a combination of `axios` for API calls, `react-hook-form` for form handling, and Tailwind CSS for styling the UI.
